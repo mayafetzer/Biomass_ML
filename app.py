@@ -1,20 +1,8 @@
 import streamlit as st
-import pickle
 import pandas as pd
+import numpy as np
+import pickle
 import os
-
-# Title
-st.title("Biomass Adsorption Predictor")
-
-# Get all pickle files in current directory
-model_files = [f for f in os.listdir() if f.endswith(".pkl")]
-
-# Dropdown to choose a model
-selected_model_file = st.selectbox("Select a model", model_files)
-
-# Load the selected model
-with open(selected_model_file, "rb") as f:
-    model = pickle.load(f)
 
 # Define features
 categorical_features = ["TYPE OF BIOMASS", "ADSORBENT", "ADSORBATE"]
@@ -26,6 +14,7 @@ numerical_features = [
     "CONTACT TIME(MIN)",
     "TEMPERATURE(K)"
 ]
+all_features = categorical_features + numerical_features
 
 # Define target names
 target_names = [
@@ -45,37 +34,41 @@ target_names = [
     "ΔS( J/mol)"
 ]
 
-# Input form
-with st.form("input_form"):
-    st.subheader("Enter Feature Values")
-    
-    inputs = {}
-    
-    # Categorical inputs (only if model has them)
-    if "no_categorical" not in selected_model_file.lower():
-        for feature in categorical_features:
-            inputs[feature] = st.text_input(feature)
-    
-    # Numerical inputs as floats
-    for feature in numerical_features:
-        value = st.text_input(feature)
-        try:
-            inputs[feature] = float(value)
-        except ValueError:
-            inputs[feature] = None
-    
-    submit = st.form_submit_button("Predict")
+st.title("Biomass ML Predictor")
 
-# Predict and display results
-if submit:
-    # Check for missing inputs
-    if None in inputs.values():
-        st.error("Please fill in all numerical fields with valid numbers.")
+# Load models
+model_dir = "."
+model_files = [f for f in os.listdir(model_dir) if f.endswith(".pkl")]
+selected_model_file = st.selectbox("Select a model", model_files)
+
+# Show appropriate inputs
+input_data = {}
+use_categorical = "no_categorical" not in selected_model_file
+
+st.subheader("Input Features")
+
+if use_categorical:
+    for feature in categorical_features:
+        input_data[feature] = st.text_input(f"{feature}", "")
+for feature in numerical_features:
+    val = st.text_input(f"{feature}", "")
+    try:
+        input_data[feature] = float(val)
+    except ValueError:
+        input_data[feature] = None
+
+# Make prediction
+if st.button("Predict"):
+    if None in input_data.values():
+        st.error("Please fill in all fields with valid values.")
     else:
-        input_df = pd.DataFrame([inputs])
-        prediction = model.predict(input_df)
-
-        # Display each target's prediction
-        st.subheader("Predicted Targets")
-        for name, value in zip(target_names, prediction[0]):
-            st.write(f"**{name}**: {value:.4f}")
+        # Create input DataFrame
+        input_df = pd.DataFrame([input_data])
+        # Load model
+        with open(os.path.join(model_dir, selected_model_file), "rb") as f:
+            model = pickle.load(f)
+        # Predict
+        predictions = model.predict(input_df)
+        st.subheader("Predicted Values")
+        for name, pred in zip(target_names, predictions[0]):
+            st.write(f"**{name}**: {pred:.4f}")
