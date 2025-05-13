@@ -40,7 +40,7 @@ if uploaded_file is not None:
     data = data.drop(columns=[col for col in columns_to_drop if col in data.columns])
 
     # One-hot encode the data
-    encoder = OneHotEncoder(drop='first', sparse=False)
+    encoder = OneHotEncoder(drop='first', sparse_output=False)
     encoded_data = pd.DataFrame(encoder.fit_transform(data.select_dtypes(include=['object'])))
     encoded_data.columns = encoder.get_feature_names_out()
 
