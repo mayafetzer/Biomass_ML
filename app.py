@@ -24,26 +24,20 @@ numerical_features = [
     "CONTACT TIME(MIN)",
     "TEMPERATURE(K)"
 ]
+# Mapping of model types to folder names
+model_folders = {
+    "Pharma with Categorical Features": "pharma_categorical_models",
+    "Pharma without Categorical Features": "pharma_no_categorical_models",
+    "Dye with Categorical Features": "dye_categorical_models",
+    "Dye without Categorical Features": "dye_no_categorical_models"
+}
 
-# Load pickle models
-model_dir = "./models"  # Adjust if different
-model_files = [
-    "pharma_categorical.pkl",
-    "pharma_no_categorical.pkl",
-    "dye_categorical.pkl",
-    "dye_no_categorical.pkl"
-]
+# Let user pick a model type
+model_type = st.selectbox("Select Model Type", list(model_folders.keys()))
+selected_folder = os.path.join("./models", model_folders[model_type])
 
-# Let user pick a model
-model_choice = st.selectbox("Select a model", model_files)
-model_path = os.path.join(model_dir, model_choice)
-
-# Load the selected model
-with open(model_path, "rb") as f:
-    model = pickle.load(f)
-
-# Check if categorical inputs should be hidden
-use_categorical = "no_categorical" not in model_choice.lower()
+# Determine if categorical features are required
+use_categorical = "no_categorical" not in selected_folder.lower()
 
 # Input UI
 user_input = {}
@@ -60,7 +54,7 @@ for feature in numerical_features:
 # Convert input to DataFrame
 input_df = pd.DataFrame([user_input])
 
-# Define target names based on the provided list
+# Define the 14 target names
 target_names = [
     "Absorption_Kinetics_PFO_Qexp(mg/g)",
     "Absorption_Kinetics_PFO_Qe cal(mg/g)",
@@ -78,24 +72,29 @@ target_names = [
     "ΔS( J/mol)"
 ]
 
-# Predict
+# Predict using all models in the selected folder
 if st.button("Predict"):
     try:
-        prediction = model.predict(input_df)
-        st.write("Prediction output shape:", np.shape(prediction))
-        
-        # Ensure prediction is in the right format (2D array for multiple targets)
-        if isinstance(prediction, np.ndarray) and prediction.ndim == 2:
-            # If multiple targets are predicted, align predictions with target names
-            prediction_df = pd.DataFrame(prediction, columns=target_names[:prediction.shape[1]])
-        else:
-            # If only one target is predicted, display it in the correct format
-            prediction_df = pd.DataFrame([prediction], columns=target_names[:len(prediction)])
+        predictions = []
+        for target in target_names:
+            model_file = f"{target}.pkl"
+            model_path = os.path.join(selected_folder, model_file)
+            
+            if not os.path.exists(model_path):
+                st.warning(f"Model for '{target}' not found in {selected_folder}. Skipping.")
+                predictions.append(None)
+                continue
+            
+            with open(model_path, "rb") as f:
+                model = pickle.load(f)
+            
+            pred = model.predict(input_df)[0]
+            predictions.append(pred)
 
+        # Display results
+        result_df = pd.DataFrame([predictions], columns=target_names)
         st.subheader("Predicted Targets:")
-        st.write(prediction_df)
-        
+        st.write(result_df)
+
     except Exception as e:
         st.error(f"Error during prediction: {e}")
-
-
