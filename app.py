@@ -38,29 +38,27 @@ def load_data(uploaded_file, model_type, use_categorical):
         # Replace '-' with NaN
         df = df.replace('-', np.nan)
 
-        # Impute missing values with the mean
+        # Impute missing values, handling numeric and non-numeric columns separately
         for col in df.columns:
-            if df[col].dtype == 'object':  #check if the column is of object type
-                #if it is, then try to convert it to numeric, if it fails, then continue
-                try:
-                    df[col] = pd.to_numeric(df[col])
-                except ValueError:
-                    continue
-        imputer = SimpleImputer(strategy='mean')
-        df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
-
+            if pd.api.types.is_numeric_dtype(df[col]):
+                # Calculate the mean, excluding NaN values
+                mean_val = df[col].mean()
+                # Impute with the calculated mean
+                imputer = SimpleImputer(strategy='constant', fill_value=mean_val)
+                df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
+            else:
+                # Impute with the most frequent value for non-numeric columns
+                imputer = SimpleImputer(strategy='most_frequent')
+                df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
 
         # Common preprocessing steps
         df = df.dropna()
         df = df.drop_duplicates()
 
-
-
         # Feature and target columns
         categorical_features = ['TYPE OF BIOMASS', 'ADSORBENT', 'ADSORBATE']
         numerical_features = ['MASS OF ADSORBENT(mg/L)', 'VOLUME OF DYE/POLLUTANT(mL)', 'Ph', 'INITIAL CONCENTRATION OF ADSORBENT(mg/L)', 'CONTACT TIME(MIN)', 'TEMPERATURE(K)']
         target_columns = ['Absorption_Kinetics_PFO_Qexp(mg/g)', 'Absorption_Kinetics_PFO_Qe cal(mg/g)', 'K1(min-1)', 'Absorption_Kinetics_PSO_Qe cal(mg/g)', 'Absorption_Kinetics_PSO_K2(mg/g.min)', 'Isotherm_Langmuir_Qmax(mg/g)', 'Isotherm_Langmuir_KL(L/mg)', 'Isotherm_Freundlich_Kf(mg/g)', 'Isotherm_Freundlich_1/n', 'PORE VOLUME(cm3/g)', 'SURFACE AREA(m2/g)', 'ΔG(kJ /mol)', 'ΔH( kJ/mol)', 'ΔS( J/mol)']
-
 
         # Model-specific preprocessing (the logic is now the same for both)
         if use_categorical:
@@ -144,6 +142,6 @@ def main():
             st.dataframe(results_df)
         else:
             st.write("Please upload a valid dataset to proceed.") # added message
-
 if __name__ == "__main__":
     main()
+
