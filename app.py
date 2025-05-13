@@ -4,10 +4,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, MinMaxScaler
-from sklearn.impute import SimpleImputer # Import SimpleImputer
-import pickle # Import pickle
-from io import BytesIO  # Import BytesIO for handling file-like objects
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
 
 # Load data function (modified to take file upload)
 def load_data(uploaded_file, model_type, use_categorical):
@@ -24,47 +22,54 @@ def load_data(uploaded_file, model_type, use_categorical):
     """
     if uploaded_file is not None:
         try:
-            # Use BytesIO to handle the file-like object
-            bytes_data = uploaded_file.read()
+            # Try reading as CSV
+            df = pd.read_csv(uploaded_file)
+        except Exception as e:
             try:
-                # Try reading as CSV
-                df = pd.read_csv(BytesIO(bytes_data))
+                # If CSV fails, try reading as Excel
+                df = pd.read_excel(uploaded_file)
             except Exception as e:
+                st.error(f"Error: Could not read the file.  Please upload a valid CSV or Excel file.  Error Details: {e}")
+                return None, None, None, None, None
+
+        # Drop the S/NO column
+        df = df.drop(columns=['S/NO'], errors='ignore')
+
+        # Replace '-' with NaN
+        df = df.replace('-', np.nan)
+
+        # Impute missing values with the mean
+        for col in df.columns:
+            if df[col].dtype == 'object':  #check if the column is of object type
+                #if it is, then try to convert it to numeric, if it fails, then continue
                 try:
-                    # If CSV fails, try reading as Excel
-                    df = pd.read_excel(BytesIO(bytes_data))
-                except Exception as e:
-                    st.error(f"Error: Could not read the file.  Please upload a valid CSV or Excel file.  Error Details: {e}")
-                    return None, None, None, None, None
+                    df[col] = pd.to_numeric(df[col])
+                except ValueError:
+                    continue
+        imputer = SimpleImputer(strategy='mean')
+        df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+
 
         # Common preprocessing steps
-        try: # Added try and except
-            df = df.dropna()
-            df = df.drop_duplicates()
-        except Exception as e:
-            st.error(f"Error during data preprocessing: {e}")
-            return None, None, None, None, None
+        df = df.dropna()
+        df = df.drop_duplicates()
 
-        # Model-specific preprocessing
-        if model_type == 'pharma':
-            if use_categorical:
-                X = df[['MW', 'logP', 'HBA', 'HBD', 'RotB', 'Amide', 'AromaticRings', 'ReducibleBonds', 'QED', 'TPSA', 'FCSP3', 'caco2', 'Pappab', 'pgp', 'HLM_CLint', 'mouse_CLint', 'BBB', 'IVIVC_rat', 'F', 'fu']]
-                y = df['Yield']
-                X = pd.get_dummies(X, drop_first=True)
-            else:
-                X = df[['MW', 'logP', 'HBA', 'HBD', 'RotB', 'Amide', 'AromaticRings', 'ReducibleBonds', 'QED', 'TPSA', 'FCSP3']]
-                y = df['Yield']
-        elif model_type == 'dye':
-            if use_categorical:
-                X = df[['peak_absorbance', 'Molar_Extinction_Coefficient', 'Dye_class']]
-                y = df['Brightness']
-                X = pd.get_dummies(X, drop_first=True)
-            else:
-                X = df[['peak_absorbance', 'Molar_Extinction_Coefficient']]
-                y = df['Brightness']
+
+
+        # Feature and target columns
+        categorical_features = ['TYPE OF BIOMASS', 'ADSORBENT', 'ADSORBATE']
+        numerical_features = ['MASS OF ADSORBENT(mg/L)', 'VOLUME OF DYE/POLLUTANT(mL)', 'Ph', 'INITIAL CONCENTRATION OF ADSORBENT(mg/L)', 'CONTACT TIME(MIN)', 'TEMPERATURE(K)']
+        target_columns = ['Absorption_Kinetics_PFO_Qexp(mg/g)', 'Absorption_Kinetics_PFO_Qe cal(mg/g)', 'K1(min-1)', 'Absorption_Kinetics_PSO_Qe cal(mg/g)', 'Absorption_Kinetics_PSO_K2(mg/g.min)', 'Isotherm_Langmuir_Qmax(mg/g)', 'Isotherm_Langmuir_KL(L/mg)', 'Isotherm_Freundlich_Kf(mg/g)', 'Isotherm_Freundlich_1/n', 'PORE VOLUME(cm3/g)', 'SURFACE AREA(m2/g)', 'ΔG(kJ /mol)', 'ΔH( kJ/mol)', 'ΔS( J/mol)']
+
+
+        # Model-specific preprocessing (the logic is now the same for both)
+        if use_categorical:
+            X = df[numerical_features + categorical_features]
+            y = df[target_columns]
+            X = pd.get_dummies(X, drop_first=True)
         else:
-            st.error("Invalid model type. Please choose 'pharma' or 'dye'.")
-            return None, None, None, None, None
+            X = df[numerical_features]
+            y = df[target_columns]
 
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
