@@ -1,77 +1,69 @@
 import streamlit as st
-import pickle
 import os
-import pandas as pd
+import pickle
+import numpy as np
 
-def load_model(file_path):
-    """Loads a pickled model from the given file path."""
-    with open(file_path, 'rb') as file:
-        model = pickle.load(file)
-    return model
+# Categorical and numerical feature names
+categorical_features = ["TYPE OF BIOMASS", "ADSORBENT", "ADSORBATE"]
+numerical_features = [
+    "MASS OF ADSORBENT(mg/L)",
+    "VOLUME OF DYE/POLLUTANT(mL)",
+    "Ph",
+    "INITIAL CONCENTRATION OF ADSORBENT(mg/L)",
+    "CONTACT TIME(MIN)",
+    "TEMPERATURE(K)"
+]
 
-def predict(model, features):
-    """Makes a prediction using the loaded model and input features."""
-    try:
-        input_df = pd.DataFrame([features])
-        prediction = model.predict(input_df)
-        return prediction[0]
-    except Exception as e:
-        return f"Error during prediction: {e}"
+# Target labels for display
+target_outputs = [
+    "Absorption_Kinetics_PFO_Qexp(mg/g)",
+    "Absorption_Kinetics_PFO_Qe cal(mg/g)",
+    "K1(min-1)",
+    "Absorption_Kinetics_PSO_Qe cal(mg/g)",
+    "Absorption_Kinetics_PSO_K2(mg/g.min)",
+    "Isotherm_Langmuir_Qmax(mg/g)",
+    "Isotherm_Langmuir_KL(L/mg)",
+    "Isotherm_Freundlich_Kf(mg/g)",
+    "Isotherm_Freundlich_1/n",
+    "PORE VOLUME(cm3/g)",
+    "SURFACE AREA(m2/g)",
+    "ΔG(kJ /mol)",
+    "ΔH( kJ/mol)",
+    "ΔS( J/mol)"
+]
 
-def main():
-    st.title("Biomass Prediction App")
+st.title("Biomass ML Predictor")
 
-    # Find all pickle files in the current directory
-    pickle_files = [f for f in os.listdir() if f.endswith(".pkl")]
+# List all pickle model files in current directory
+model_files = [f for f in os.listdir() if f.endswith('.pkl')]
+if not model_files:
+    st.warning("No model files (.pkl) found.")
+else:
+    model_choice = st.selectbox("Choose a model file", model_files)
 
-    if not pickle_files:
-        st.warning("No pickle files found in the current directory.")
-        return
+    # Collect categorical inputs
+    st.subheader("Categorical Features")
+    cat_inputs = [st.text_input(f) for f in categorical_features]
 
-    # Allow user to select a pickle file
-    selected_file = st.selectbox("Select a trained model:", pickle_files)
+    # Collect numerical inputs
+    st.subheader("Numerical Features")
+    num_inputs = [st.number_input(f, format="%.4f") for f in numerical_features]
 
-    # Load the selected model
-    model = load_model(selected_file)
-    st.success(f"Model '{selected_file}' loaded successfully!")
+    if st.button("Predict"):
+        try:
+            # Load selected model
+            with open(model_choice, 'rb') as f:
+                model = pickle.load(f)
 
-    # Get feature names from the model (if possible)
-    feature_names = None
-    if hasattr(model, 'feature_names_in_'):
-        feature_names = list(model.feature_names_in_)
-    elif hasattr(model, 'n_features_in_'):
-        feature_names = [f"feature_{i+1}" for i in range(model.n_features_in_)]
+            # Combine inputs
+            input_data = np.array(cat_inputs + num_inputs, dtype=object).reshape(1, -1)
 
-    if feature_names:
-        st.subheader("Enter Feature Values:")
-        features = {}
-        for feature in feature_names:
-            value = st.number_input(f"{feature}:")
-            features[feature] = value
+            # Run prediction
+            prediction = model.predict(input_data)
 
-        if st.button("Predict Biomass"):
-            if features:
-                prediction = predict(model, features)
-                st.subheader("Prediction:")
-                st.write(f"The predicted biomass is: {prediction}")
-            else:
-                st.warning("Please enter all feature values.")
-    else:
-        st.warning("Could not automatically determine feature names. Please refer to the model documentation for the required input features.")
-        # Provide generic input fields if feature names cannot be determined
-        num_features = st.number_input("Enter the number of features expected by the model:", min_value=1, step=1)
-        features = {}
-        for i in range(num_features):
-            value = st.number_input(f"Feature {i+1}:")
-            features[f"feature_{i+1}"] = value
-
-        if st.button("Predict Biomass"):
-            if features and len(features) == num_features:
-                prediction = predict(model, list(features.values())) # Pass values in order
-                st.subheader("Prediction:")
-                st.write(f"The predicted biomass is: {prediction}")
-            else:
-                st.warning(f"Please enter all {num_features} feature values.")
-
-if __name__ == "__main__":
-    main()
+            # Display results
+            st.subheader("Predicted Outputs:")
+            for label, value in zip(target_outputs, prediction[0]):
+                st.write(f"**{label}**: {value:.4f}")
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
