@@ -83,10 +83,12 @@ if st.button("Predict"):
     try:
         prediction = model.predict(input_df)
         
-        # If the model has multiple targets, ensure predictions are in tabular form
+        # Ensure prediction is in the right format (2D array for multiple targets)
         if isinstance(prediction, np.ndarray) and prediction.ndim == 2:
+            # If multiple targets are predicted, align predictions with target names
             prediction_df = pd.DataFrame(prediction, columns=target_names[:prediction.shape[1]])
         else:
+            # If only one target is predicted, display it in the correct format
             prediction_df = pd.DataFrame([prediction], columns=target_names[:len(prediction)])
 
         st.subheader("Predicted Targets:")
