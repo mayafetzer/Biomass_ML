@@ -4,7 +4,7 @@ import streamlit as st
 
 # 1. Streamlit App Setup
 st.title("Model Prediction App")
-st.write("Select a model and upload a dataset to make predictions.")
+st.write("Select a model and upload a dataset (CSV or Excel) to make predictions.")
 
 # 2. Model Selection Dropdown with Descriptive Titles
 model_options = {
@@ -20,12 +20,15 @@ model_option = st.selectbox(
     format_func=lambda x: model_options[x]
 )
 
-# 3. File Uploader for Input Data
-uploaded_file = st.file_uploader("Upload your dataset (CSV)", type=["csv"])
+# 3. File Uploader for Input Data (Accepting .csv and .xlsx)
+uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    # Read the uploaded CSV file
-    data = pd.read_csv(uploaded_file)
+    # Check file extension and load accordingly
+    if uploaded_file.name.endswith(".csv"):
+        data = pd.read_csv(uploaded_file)
+    elif uploaded_file.name.endswith(".xlsx"):
+        data = pd.read_excel(uploaded_file)
     
     # Load the selected model
     with open(model_option, 'rb') as f:
