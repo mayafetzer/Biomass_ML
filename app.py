@@ -1,57 +1,64 @@
+import streamlit as st
 import pandas as pd
 import pickle
-import streamlit as st
+from sklearn.preprocessing import LabelEncoder
 
-# 1. Streamlit App Setup
-st.title("Model Prediction App")
-st.write("Select a model and upload a dataset (CSV or Excel) to make predictions.")
+# Load model function
+@st.cache
+def load_model(model_filename):
+    with open(model_filename, 'rb') as f:
+        model = pickle.load(f)
+    return model
 
-# 2. Model Selection Dropdown with Descriptive Titles
-model_options = {
-    'pharma_categorical.pkl': 'Pharmaceutical dataset with Categorical Variables',
-    'pharma_no_categorical.pkl': 'Pharmaceutical dataset without Categorical Variables',
-    'dye_categorical.pkl': 'Dye dataset with Categorical Variables',
-    'dye_no_categorical.pkl': 'Dye dataset without Categorical Variables'
-}
+# Load label encoder function (if you have categorical encoding)
+@st.cache
+def load_label_encoder(filename):
+    with open(filename, 'rb') as f:
+        le = pickle.load(f)
+    return le
 
-model_option = st.selectbox(
-    "Choose a model to use for predictions:",
-    list(model_options.keys()),
-    format_func=lambda x: model_options[x]
-)
+# Streamlit App Interface
+st.title("Machine Learning Model Selector")
 
-# 3. File Uploader for Input Data (Accepting .csv and .xlsx)
-uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=["csv", "xlsx"])
+# File upload
+uploaded_file = st.file_uploader("Upload your CSV or Excel file", type=['csv', 'xlsx'])
 
 if uploaded_file is not None:
-    # Check file extension and load accordingly
-    if uploaded_file.name.endswith(".csv"):
+    # Read the uploaded file into a DataFrame
+    if uploaded_file.name.endswith('.csv'):
         data = pd.read_csv(uploaded_file)
-    elif uploaded_file.name.endswith(".xlsx"):
+    elif uploaded_file.name.endswith('.xlsx'):
         data = pd.read_excel(uploaded_file)
-    
+
+    st.write("Data Preview:")
+    st.dataframe(data.head())
+
+    # Choose the model based on selection
+    model_option = st.selectbox("Choose a Model", [
+        'Pharmaceutical dataset with Categorical Variables',
+        'Pharmaceutical dataset without Categorical Variables',
+        'Dye dataset with Categorical Variables',
+        'Dye dataset without Categorical Variables'
+    ])
+
+    # Dictionary of models
+    model_files = {
+        'Pharmaceutical dataset with Categorical Variables': 'pharma_categorical.pkl',
+        'Pharmaceutical dataset without Categorical Variables': 'pharma_no_categorical.pkl',
+        'Dye dataset with Categorical Variables': 'dye_categorical.pkl',
+        'Dye dataset without Categorical Variables': 'dye_no_categorical.pkl'
+    }
+
     # Load the selected model
-    with open(model_option, 'rb') as f:
-        model = pickle.load(f)
-    
-    # Display model info to the user
-    st.write(f"Using model: {model_options[model_option]}")
-    
-    # Assuming the model uses all columns except the target for prediction:
-    feature_cols = [col for col in data.columns if col != 'Target']  # Modify 'Target' based on your dataset
+    selected_model_file = model_files[model_option]
+    model = load_model(selected_model_file)
 
-    # Check if the necessary columns exist in the uploaded file
-    missing_columns = [col for col in feature_cols if col not in data.columns]
-    if missing_columns:
-        st.error(f"Missing columns in the uploaded dataset: {', '.join(missing_columns)}")
-    else:
-        # Select the features for prediction
-        X_new = data[feature_cols]
+    # Prepare data (Example: Encoding categorical features if needed)
+    if 'Category' in data.columns:  # Adjust 'Category' to the actual column if applicable
+        le = load_label_encoder('label_encoder.pkl')
+        data['Category'] = le.transform(data['Category'])
 
-        # Make predictions with the model
-        predictions = model.predict(X_new)
-
-        # Display the predictions along with the original data
-        data['Predictions'] = predictions
-        st.write("Predictions:")
-        st.write(data)
+    # Make predictions
+    predictions = model.predict(data)
+    st.write("Predictions:")
+    st.write(predictions)
