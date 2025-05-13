@@ -1,71 +1,70 @@
 import streamlit as st
-import os
-import pickle
 import pandas as pd
+import numpy as np
+import pickle
+import os
 
-# Set up Streamlit page
-st.set_page_config(page_title="Biomass ML Predictor", layout="centered")
-st.title("🌿 Biomass-Based Adsorption Predictor")
+# Set page config
+st.set_page_config(page_title="Biomass ML Predictor", layout="wide")
 
-# Load available model files
-model_dir = "models"
-model_files = [f for f in os.listdir(model_dir) if f.endswith(".pkl")]
+st.title("Biomass ML Predictor")
 
-selected_model_filename = st.selectbox("🔍 Choose a model", model_files)
+# Define feature sets
+categorical_features = [
+    "TYPE OF BIOMASS",
+    "ADSORBENT",
+    "ADSORBATE"
+]
 
-if selected_model_filename:
-    # Load selected model
-    model_path = os.path.join(model_dir, selected_model_filename)
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
+numerical_features = [
+    "MASS OF ADSORBENT(mg/L)",
+    "VOLUME OF DYE/POLLUTANT(mL)",
+    "Ph",
+    "INITIAL CONCENTRATION OF ADSORBENT(mg/L)",
+    "CONTACT TIME(MIN)",
+    "TEMPERATURE(K)"
+]
 
-    # Determine if categorical inputs should be used
-    use_categoricals = "no_categorical" not in selected_model_filename.lower()
+# Load pickle models
+model_dir = "./models"  # Adjust if different
+model_files = [
+    "pharma_categorical.pkl",
+    "pharma_no_categorical.pkl",
+    "dye_categorical.pkl",
+    "dye_no_categorical.pkl"
+]
 
-    st.header("🧪 Enter Feature Values")
+# Let user pick a model
+model_choice = st.selectbox("Select a model", model_files)
+model_path = os.path.join(model_dir, model_choice)
 
-    input_data = {}
+# Load the selected model
+with open(model_path, "rb") as f:
+    model = pickle.load(f)
 
-    # Optional categorical inputs
-    if use_categoricals:
-        input_data["TYPE OF BIOMASS"] = st.selectbox("TYPE OF BIOMASS", ["Type1", "Type2", "Type3"])
-        input_data["ADSORBENT"] = st.selectbox("ADSORBENT", ["A1", "A2", "A3"])
-        input_data["ADSORBATE"] = st.selectbox("ADSORBATE", ["B1", "B2", "B3"])
+# Check if categorical inputs should be hidden
+use_categorical = "no_categorical" not in model_choice.lower()
 
-    # Numerical inputs (explicitly cast as floats)
-    input_data["MASS OF ADSORBENT(mg/L)"] = float(
-        st.number_input("MASS OF ADSORBENT (mg/L)", value=10.0)
-    )
-    input_data["VOLUME OF DYE/POLLUTANT(mL)"] = float(
-        st.number_input("VOLUME OF DYE/POLLUTANT (mL)", value=10.0)
-    )
-    input_data["Ph"] = float(st.number_input("pH", value=7.0))
-    input_data["INITIAL CONCENTRATION OF ADSORBENT(mg/L)"] = float(
-        st.number_input("INITIAL CONCENTRATION OF ADSORBENT (mg/L)", value=50.0)
-    )
-    input_data["CONTACT TIME(MIN)"] = float(
-        st.number_input("CONTACT TIME (min)", value=60.0)
-    )
-    input_data["TEMPERATURE(K)"] = float(
-        st.number_input("TEMPERATURE (K)", value=298.0)
-    )
+# Input UI
+user_input = {}
 
-    # Prediction
-    if st.button("📈 Predict"):
-        input_df = pd.DataFrame([input_data])
+st.subheader("Input Features")
 
-        try:
-            prediction = model.predict(input_df)
+if use_categorical:
+    for feature in categorical_features:
+        user_input[feature] = st.text_input(f"{feature}")
 
-            # Format output as DataFrame if multi-output
-            if hasattr(model, "feature_names_out_"):
-                output_df = pd.DataFrame(prediction, columns=model.feature_names_out_)
-            else:
-                output_df = pd.DataFrame(prediction)
+for feature in numerical_features:
+    user_input[feature] = st.number_input(f"{feature}", step=0.01, format="%.4f")
 
-            st.success("✅ Prediction successful!")
-            st.write("### 🔬 Predicted Outputs:")
-            st.dataframe(output_df)
+# Convert input to DataFrame
+input_df = pd.DataFrame([user_input])
 
-        except Exception as e:
-            st.error(f"❌ Prediction failed: {e}")
+# Predict
+if st.button("Predict"):
+    try:
+        prediction = model.predict(input_df)
+        st.subheader("Predicted Targets:")
+        st.write(pd.DataFrame(prediction, columns=model.feature_names_out_ if hasattr(model, "feature_names_out_") else None))
+    except Exception as e:
+        st.error(f"Error during prediction: {e}")
