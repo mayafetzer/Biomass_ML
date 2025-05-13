@@ -9,7 +9,7 @@ st.set_page_config(page_title="Biomass ML Predictor", layout="wide")
 
 st.title("Biomass ML Predictor")
 
-# Define feature sets
+# Define categorical and numerical features
 categorical_features = [
     "TYPE OF BIOMASS",
     "ADSORBENT",
@@ -24,37 +24,8 @@ numerical_features = [
     "CONTACT TIME(MIN)",
     "TEMPERATURE(K)"
 ]
-# Mapping of model types to folder names
-model_folders = {
-    "Pharma with Categorical Features": "pharma_categorical_models",
-    "Pharma without Categorical Features": "pharma_no_categorical_models",
-    "Dye with Categorical Features": "dye_categorical_models",
-    "Dye without Categorical Features": "dye_no_categorical_models"
-}
 
-# Let user pick a model type
-model_type = st.selectbox("Select Model Type", list(model_folders.keys()))
-selected_folder = os.path.join("./models", model_folders[model_type])
-
-# Determine if categorical features are required
-use_categorical = "no_categorical" not in selected_folder.lower()
-
-# Input UI
-user_input = {}
-
-st.subheader("Input Features")
-
-if use_categorical:
-    for feature in categorical_features:
-        user_input[feature] = st.text_input(f"{feature}")
-
-for feature in numerical_features:
-    user_input[feature] = st.number_input(f"{feature}", step=0.01, format="%.4f")
-
-# Convert input to DataFrame
-input_df = pd.DataFrame([user_input])
-
-# Define the 14 target names
+# Define all 14 target variable names
 target_names = [
     "Absorption_Kinetics_PFO_Qexp(mg/g)",
     "Absorption_Kinetics_PFO_Qe cal(mg/g)",
@@ -72,10 +43,40 @@ target_names = [
     "ΔS( J/mol)"
 ]
 
-# Predict using all models in the selected folder
+# Mapping of model types to folder names
+model_folders = {
+    "Pharma with Categorical Features": "pharma_categorical_models",
+    "Pharma without Categorical Features": "pharma_no_categorical_models",
+    "Dye with Categorical Features": "dye_categorical_models",
+    "Dye without Categorical Features": "dye_no_categorical_models"
+}
+
+# Let user pick a model type
+model_type = st.selectbox("Select Model Type", list(model_folders.keys()))
+selected_folder = os.path.join("./models", model_folders[model_type])
+
+# Determine whether to show categorical inputs
+use_categorical = "no_categorical" not in selected_folder.lower()
+
+# Input form
+st.subheader("Input Features")
+user_input = {}
+
+if use_categorical:
+    for feature in categorical_features:
+        user_input[feature] = st.text_input(f"{feature}")
+        
+for feature in numerical_features:
+    user_input[feature] = st.number_input(f"{feature}", step=0.01, format="%.4f")
+
+# Convert inputs to DataFrame
+input_df = pd.DataFrame([user_input])
+
+# Predict button
 if st.button("Predict"):
     try:
         predictions = []
+
         for target in target_names:
             model_file = f"{target}.pkl"
             model_path = os.path.join(selected_folder, model_file)
@@ -84,14 +85,14 @@ if st.button("Predict"):
                 st.warning(f"Model for '{target}' not found in {selected_folder}. Skipping.")
                 predictions.append(None)
                 continue
-            
+
             with open(model_path, "rb") as f:
                 model = pickle.load(f)
-            
+
             pred = model.predict(input_df)[0]
             predictions.append(pred)
 
-        # Display results
+        # Display predictions in table format
         result_df = pd.DataFrame([predictions], columns=target_names)
         st.subheader("Predicted Targets:")
         st.write(result_df)
