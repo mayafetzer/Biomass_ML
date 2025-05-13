@@ -1,76 +1,85 @@
-import pandas as pd
-import numpy as np
 import streamlit as st
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+import pickle
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
-# User uploads a file
-uploaded_file = st.file_uploader("Upload a file", type=["csv", "xlsx"])
+# Load model function
+@st.cache
+def load_model(model_filename):
+    with open(model_filename, 'rb') as f:
+        model = pickle.load(f)
+    return model
 
-if uploaded_file is not None:
-    # Try to read the file based on the extension
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    elif uploaded_file.name.endswith(".xlsx"):
-        df = pd.read_excel(uploaded_file)
-    else:
-        st.error("Unsupported file type. Please upload a CSV or Excel file.")
-    
-    # Display the first few rows of the dataset
-    st.write("Dataset preview:")
-    st.write(df.head())
+# Load label encoder function (if you have categorical encoding)
+@st.cache
+def load_label_encoder(filename):
+    with open(filename, 'rb') as f:
+        le = pickle.load(f)
+    return le
 
-    # User option for handling categorical variables
-    drop_categorical = st.checkbox('Drop Categorical Variables', value=True)
+# Streamlit App Interface
+st.title("Machine Learning Model Selector")
 
-    # Handle categorical variables based on user selection
-    if drop_categorical:
-        # Drop categorical columns if the user chooses to
-        categorical_cols = df.select_dtypes(include=['object']).columns
-        df = df.drop(columns=categorical_cols)
+# Input fields for categorical features (user types in the values)
+type_of_biomass = st.text_input('Enter TYPE OF BIOMASS')
+adsorbent = st.text_input('Enter ADSORBENT')
+adsorbate = st.text_input('Enter ADSORBATE')
 
-    # Define target columns and feature columns
-    target_cols = [
-        'Absorption_Kinetics_PFO_Qexp(mg/g)', 'Absorption_Kinetics_PFO_Qe cal(mg/g)', 'K1(min-1)',
-        'Absorption_Kinetics_PSO_Qe cal(mg/g)', 'Absorption_Kinetics_PSO_K2(mg/g.min)',
-        'Isotherm_Langmuir_Qmax(mg/g)', 'Isotherm_Langmuir_KL(L/mg)', 'Isotherm_Freundlich_Kf(mg/g)',
-        'Isotherm_Freundlich_1/n', 'PORE VOLUME(cm3/g)', 'SURFACE AREA(m2/g) ',
-        'ΔG(kJ /mol)', 'ΔH( kJ/mol)', 'ΔS( J/mol)'
-    ]
+# Input fields for numerical features
+mass_of_adsorbent = st.number_input('Enter MASS OF ADSORBENT (mg/L)', min_value=0.0, step=0.1)
+volume_of_dye_pollutant = st.number_input('Enter VOLUME OF DYE/POLLUTANT (mL)', min_value=0.0, step=0.1)
+ph = st.number_input('Enter Ph', min_value=0.0, step=0.1)
+initial_concentration_of_adsorbent = st.number_input('Enter INITIAL CONCENTRATION OF ADSORBENT (mg/L)', min_value=0.0, step=0.1)
+contact_time = st.number_input('Enter CONTACT TIME (MIN)', min_value=0, step=1)
+temperature = st.number_input('Enter TEMPERATURE (K)', min_value=0.0, step=0.1)
 
-    # Define feature columns (everything except target columns)
-    feature_cols = [col for col in df.columns if col not in target_cols]
+# Collect the user input into a data structure (e.g., a dictionary or DataFrame)
+user_input = {
+    'TYPE OF BIOMASS': [type_of_biomass],
+    'ADSORBENT': [adsorbent],
+    'ADSORBATE': [adsorbate],
+    'MASS OF ADSORBENT (mg/L)': [mass_of_adsorbent],
+    'VOLUME OF DYE/POLLUTANT (mL)': [volume_of_dye_pollutant],
+    'Ph': [ph],
+    'INITIAL CONCENTRATION OF ADSORBENT (mg/L)': [initial_concentration_of_adsorbent],
+    'CONTACT TIME (MIN)': [contact_time],
+    'TEMPERATURE (K)': [temperature]
+}
 
-    # Handle missing values (if any columns have NaN, you can fill with mean or any other strategy)
-    df.fillna(df.mean(), inplace=True)
+# Convert the user input into a DataFrame
+data = pd.DataFrame(user_input)
 
-    # Ensure we are not passing an empty dataset
-    if len(df[feature_cols]) == 0 or len(df[target_cols]) == 0:
-        st.error("Feature or target columns are empty. Please check your data.")
-    else:
-        # Split data into train and test
-        X = df[feature_cols]
-        y = df[target_cols[0]]  # Example: use first target column
+st.write("User Input Data:")
+st.dataframe(data)
 
-        # Split into train and test sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Choose the model based on selection
+model_option = st.selectbox("Choose a Model", [
+    'Pharmaceutical dataset with Categorical Variables',
+    'Pharmaceutical dataset without Categorical Variables',
+    'Dye dataset with Categorical Variables',
+    'Dye dataset without Categorical Variables'
+])
 
-        # Model initialization
-        model = LinearRegression()
-        model.fit(X_train, y_train)
+# Dictionary of models
+model_files = {
+    'Pharmaceutical dataset with Categorical Variables': 'pharma_categorical.pkl',
+    'Pharmaceutical dataset without Categorical Variables': 'pharma_no_categorical.pkl',
+    'Dye dataset with Categorical Variables': 'dye_categorical.pkl',
+    'Dye dataset without Categorical Variables': 'dye_no_categorical.pkl'
+}
 
-        # Predictions
-        y_pred = model.predict(X_test)
+# Load the selected model
+selected_model_file = model_files[model_option]
+model = load_model(selected_model_file)
 
-        # Evaluate model
-        r2 = r2_score(y_test, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-        mae = mean_absolute_error(y_test, y_pred)
+# Prepare data (Example: Encoding categorical features if needed)
+if 'TYPE OF BIOMASS' in data.columns:  # Adjust 'TYPE OF BIOMASS' to the actual column if applicable
+    le = load_label_encoder('label_encoder.pkl')
+    data['TYPE OF BIOMASS'] = le.transform(data['TYPE OF BIOMASS'])
+    data['ADSORBENT'] = le.transform(data['ADSORBENT'])
+    data['ADSORBATE'] = le.transform(data['ADSORBATE'])
 
-        # Display results
-        st.write(f'R2 Score: {r2:.4f}')
-        st.write(f'RMSE: {rmse:.4f}')
-        st.write(f'MAE: {mae:.4f}')
-else:
-    st.write("Please upload a file to begin.")
+# Make predictions
+predictions = model.predict(data)
+st.write("Predictions:")
+st.write(predictions)
