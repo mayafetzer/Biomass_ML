@@ -82,6 +82,7 @@ target_names = [
 if st.button("Predict"):
     try:
         prediction = model.predict(input_df)
+        st.write("Prediction output shape:", np.shape(prediction))
         
         # Ensure prediction is in the right format (2D array for multiple targets)
         if isinstance(prediction, np.ndarray) and prediction.ndim == 2:
@@ -97,4 +98,4 @@ if st.button("Predict"):
     except Exception as e:
         st.error(f"Error during prediction: {e}")
 
-st.write("Prediction output shape:", np.shape(prediction))
+
