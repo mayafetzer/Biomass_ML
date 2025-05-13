@@ -4,7 +4,10 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, MinMaxScaler
+from sklearn.impute import SimpleImputer # Import SimpleImputer
+import pickle # Import pickle
+from io import BytesIO  # Import BytesIO for handling file-like objects
 
 # Load data function (modified to take file upload)
 def load_data(uploaded_file, model_type, use_categorical):
@@ -21,15 +24,18 @@ def load_data(uploaded_file, model_type, use_categorical):
     """
     if uploaded_file is not None:
         try:
-            # Try reading as CSV
-            df = pd.read_csv(uploaded_file)
-        except Exception as e:
+            # Use BytesIO to handle the file-like object
+            bytes_data = uploaded_file.read()
             try:
-                # If CSV fails, try reading as Excel
-                df = pd.read_excel(uploaded_file)
+                # Try reading as CSV
+                df = pd.read_csv(BytesIO(bytes_data))
             except Exception as e:
-                st.error(f"Error: Could not read the file.  Please upload a valid CSV or Excel file.  Error Details: {e}")
-                return None, None, None, None, None
+                try:
+                    # If CSV fails, try reading as Excel
+                    df = pd.read_excel(BytesIO(bytes_data))
+                except Exception as e:
+                    st.error(f"Error: Could not read the file.  Please upload a valid CSV or Excel file.  Error Details: {e}")
+                    return None, None, None, None, None
 
         # Common preprocessing steps
         df = df.dropna()
