@@ -39,6 +39,9 @@ if uploaded_file is not None:
     columns_to_drop = ['S/NO', 'Unnamed: 24']
     data = data.drop(columns=[col for col in columns_to_drop if col in data.columns])
 
+    # Convert 'Ph' column to numeric, forcing errors to NaN (if any non-numeric values exist)
+    data['Ph'] = pd.to_numeric(data['Ph'], errors='coerce')
+
     # One-hot encode the data
     encoder = OneHotEncoder(drop='first', sparse_output=False)
     encoded_data = pd.DataFrame(encoder.fit_transform(data.select_dtypes(include=['object'])))
