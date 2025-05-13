@@ -9,7 +9,7 @@ st.set_page_config(page_title="Biomass ML Predictor", layout="wide")
 
 st.title("Biomass ML Predictor")
 
-# Define categorical and numerical features
+# Define features
 categorical_features = [
     "TYPE OF BIOMASS",
     "ADSORBENT",
@@ -25,25 +25,25 @@ numerical_features = [
     "TEMPERATURE(K)"
 ]
 
-# Define all 14 target variable names
-target_names = [
-    "Absorption_Kinetics_PFO_Qexp(mg/g)",
-    "Absorption_Kinetics_PFO_Qe cal(mg/g)",
-    "K1(min-1)",
-    "Absorption_Kinetics_PSO_Qe cal(mg/g)",
-    "Absorption_Kinetics_PSO_K2(mg/g.min)",
-    "Isotherm_Langmuir_Qmax(mg/g)",
-    "Isotherm_Langmuir_KL(L/mg)",
-    "Isotherm_Freundlich_Kf(mg/g)",
-    "Isotherm_Freundlich_1/n",
-    "PORE VOLUME(cm3/g)",
-    "SURFACE AREA(m2/g)",
-    "ΔG(kJ /mol)",
-    "ΔH( kJ/mol)",
-    "ΔS( J/mol)"
-]
+# Define target names and corresponding file-safe names
+target_name_map = {
+    "Absorption_Kinetics_PFO_Qexp(mg/g)": "Absorption_Kinetics_PFO_Qexp_mg_g_",
+    "Absorption_Kinetics_PFO_Qe cal(mg/g)": "Absorption_Kinetics_PFO_Qe cal_mg_g_",
+    "K1(min-1)": "K1_min_1_",
+    "Absorption_Kinetics_PSO_Qe cal(mg/g)": "Absorption_Kinetics_PSO_Qe cal_mg_g_",
+    "Absorption_Kinetics_PSO_K2(mg/g.min)": "Absorption_Kinetics_PSO_K2_mg_g_min_",
+    "Isotherm_Langmuir_Qmax(mg/g)": "Isotherm_Langmuir_Qmax_mg_g_",
+    "Isotherm_Langmuir_KL(L/mg)": "Isotherm_Langmuir_KL_L_mg_",
+    "Isotherm_Freundlich_Kf(mg/g)": "Isotherm_Freundlich_Kf_mg_g_",
+    "Isotherm_Freundlich_1/n": "Isotherm_Freundlich_1_n_",
+    "PORE VOLUME(cm3/g)": "PORE VOLUME_cm3_g_",
+    "SURFACE AREA(m2/g)": "SURFACE AREA_m2_g_",
+    "ΔG(kJ /mol)": "ΔG_kJ_mol_",
+    "ΔH( kJ/mol)": "ΔH_kJ_mol_",
+    "ΔS( J/mol)": "ΔS_J_mol_"
+}
 
-# Mapping of model types to folder names
+# Let user pick model type
 model_folders = {
     "Pharma with Categorical Features": "pharma_categorical_models",
     "Pharma without Categorical Features": "pharma_no_categorical_models",
@@ -51,38 +51,37 @@ model_folders = {
     "Dye without Categorical Features": "dye_no_categorical_models"
 }
 
-# Let user pick a model type
 model_type = st.selectbox("Select Model Type", list(model_folders.keys()))
 selected_folder = model_folders[model_type]
 
-# Determine whether to show categorical inputs
+# Determine if categorical inputs are needed
 use_categorical = "no_categorical" not in selected_folder.lower()
 
-# Input form
+# Input features
 st.subheader("Input Features")
 user_input = {}
 
 if use_categorical:
     for feature in categorical_features:
         user_input[feature] = st.text_input(f"{feature}")
-        
+
 for feature in numerical_features:
     user_input[feature] = st.number_input(f"{feature}", step=0.01, format="%.4f")
 
-# Convert inputs to DataFrame
 input_df = pd.DataFrame([user_input])
 
-# Predict button
+# Predict
 if st.button("Predict"):
     try:
         predictions = []
 
-        for target in target_names:
-            model_file = f"{target}.pkl"
+        for pretty_name, file_safe_prefix in target_name_map.items():
+            # Compose filename
+            model_file = f"{file_safe_prefix}best_model.pkl"
             model_path = os.path.join(selected_folder, model_file)
-            
+
             if not os.path.exists(model_path):
-                st.warning(f"Model for '{target}' not found in {selected_folder}. Skipping.")
+                st.warning(f"Model for '{pretty_name}' not found. Skipping.")
                 predictions.append(None)
                 continue
 
@@ -92,8 +91,8 @@ if st.button("Predict"):
             pred = model.predict(input_df)[0]
             predictions.append(pred)
 
-        # Display predictions in table format
-        result_df = pd.DataFrame([predictions], columns=target_names)
+        # Display results
+        result_df = pd.DataFrame([predictions], columns=target_name_map.keys())
         st.subheader("Predicted Targets:")
         st.write(result_df)
 
