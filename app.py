@@ -38,8 +38,12 @@ def load_data(uploaded_file, model_type, use_categorical):
                     return None, None, None, None, None
 
         # Common preprocessing steps
-        df = df.dropna()
-        df = df.drop_duplicates()
+        try: # Added try and except
+            df = df.dropna()
+            df = df.drop_duplicates()
+        except Exception as e:
+            st.error(f"Error during data preprocessing: {e}")
+            return None, None, None, None, None
 
         # Model-specific preprocessing
         if model_type == 'pharma':
