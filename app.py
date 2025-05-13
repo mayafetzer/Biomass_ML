@@ -60,11 +60,37 @@ for feature in numerical_features:
 # Convert input to DataFrame
 input_df = pd.DataFrame([user_input])
 
+# Define target names based on the provided list
+target_names = [
+    "Absorption_Kinetics_PFO_Qexp(mg/g)",
+    "Absorption_Kinetics_PFO_Qe cal(mg/g)",
+    "K1(min-1)",
+    "Absorption_Kinetics_PSO_Qe cal(mg/g)",
+    "Absorption_Kinetics_PSO_K2(mg/g.min)",
+    "Isotherm_Langmuir_Qmax(mg/g)",
+    "Isotherm_Langmuir_KL(L/mg)",
+    "Isotherm_Freundlich_Kf(mg/g)",
+    "Isotherm_Freundlich_1/n",
+    "PORE VOLUME(cm3/g)",
+    "SURFACE AREA(m2/g)",
+    "ΔG(kJ /mol)",
+    "ΔH( kJ/mol)",
+    "ΔS( J/mol)"
+]
+
 # Predict
 if st.button("Predict"):
     try:
         prediction = model.predict(input_df)
+        
+        # If the model has multiple targets, ensure predictions are in tabular form
+        if isinstance(prediction, np.ndarray) and prediction.ndim == 2:
+            prediction_df = pd.DataFrame(prediction, columns=target_names[:prediction.shape[1]])
+        else:
+            prediction_df = pd.DataFrame([prediction], columns=target_names[:len(prediction)])
+
         st.subheader("Predicted Targets:")
-        st.write(pd.DataFrame(prediction, columns=model.feature_names_out_ if hasattr(model, "feature_names_out_") else None))
+        st.write(prediction_df)
+        
     except Exception as e:
         st.error(f"Error during prediction: {e}")
