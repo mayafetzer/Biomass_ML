@@ -47,9 +47,18 @@ def load_data(uploaded_file, model_type, use_categorical):
                 imputer = SimpleImputer(strategy='constant', fill_value=mean_val)
                 df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
             else:
-                # Impute with the most frequent value for non-numeric columns
-                imputer = SimpleImputer(strategy='most_frequent')
-                df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
+                try:
+                    # Attempt to convert column to numeric
+                    df[col] = pd.to_numeric(df[col])
+                    # Calculate the mean, excluding NaN values
+                    mean_val = df[col].mean()
+                    # Impute with the calculated mean
+                    imputer = SimpleImputer(strategy='constant', fill_value=mean_val)
+                    df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
+                except ValueError:
+                    # If conversion to numeric fails, impute with the most frequent value
+                    imputer = SimpleImputer(strategy='most_frequent')
+                    df[col] = imputer.fit_transform(df[[col]])  # Pass a DataFrame
 
         # Common preprocessing steps
         df = df.dropna()
@@ -144,4 +153,3 @@ def main():
             st.write("Please upload a valid dataset to proceed.") # added message
 if __name__ == "__main__":
     main()
-
