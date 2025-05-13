@@ -53,7 +53,7 @@ model_folders = {
 
 # Let user pick a model type
 model_type = st.selectbox("Select Model Type", list(model_folders.keys()))
-selected_folder = os.path.join("./models", model_folders[model_type])
+selected_folder = model_folders[model_type]
 
 # Determine whether to show categorical inputs
 use_categorical = "no_categorical" not in selected_folder.lower()
